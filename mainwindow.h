@@ -13,13 +13,17 @@
 #include <QDateTime>
 #include <QMenuBar>
 #include <QLineEdit>
+#include <QGroupBox>
+#include <QTableWidget>
+#include <QHeaderView>
+#include "Section.h"
 
 class SavedItems {
 
 public:
     std::string thisTask;
-    qint64 startTime;
-    qint64 stopTime;
+    QDateTime startTime;
+    QDateTime stopTime;
 };
 
 class MainWindow : public QMainWindow
@@ -39,6 +43,10 @@ private:
     std::vector<SavedItems> savedTimes;
     QString diff;
     std::string currentTimer;
+    std::string dayAndMonth;
+    std::vector<std::vector<SavedItems>> tasksByDay;
+    std::vector<std::vector<SavedItems>> tasksByTask;
+
 
     // Widgets
     QWidget *mainWidget;
@@ -48,6 +56,8 @@ private:
     QFont startStopFont;
     QLineEdit *inputTask;
     QFont taskFont;
+    QTableWidget *taskTable;
+    QTableWidgetItem *cell;
 
     // Menu
     QMenu *fileMenu;
@@ -60,13 +70,20 @@ private:
 
     // Layouts
     QVBoxLayout *mainLayout;
+    QVBoxLayout *listOfTasksLayout;
+    QVBoxLayout *taskTableLayout;
+    QScrollArea *scrollArea;
 
     // Functions
     void createLayout();
+    void clearLayout(QLayout *layout);
     void timerEvent(QTimerEvent *);
     void buildMenuBar();
     std::string getCurrentTime();
     std::string convertToString(char* a, int size);
+    void sortSavedByDay();
+    void createDayOverview();
+    void getSimilarTasks(std::vector<SavedItems> tasksThisDay);
 
     // Classes
 
