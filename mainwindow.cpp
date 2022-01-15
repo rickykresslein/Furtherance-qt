@@ -6,16 +6,26 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
     setWindowTitle("rkTimer");
-    resize(350,1000);
+    resize(425,700);
     mainWidget = new QWidget();
     mainLayout = new QVBoxLayout();
     mainWidget->setLayout(mainLayout);
     listOfTasksLayout = new QVBoxLayout();
 
+    databaseInit();
+
+    taskListTree = new QTreeWidget();
+    taskListTree->setUniformRowHeights(true);
+    taskListTree->setHeaderLabels(QStringList() << tr("Task") << tr("Time") << tr("Start") << tr("End"));
+    taskListTree->header()->resizeSection(0, 170);
+    taskListTree->header()->resizeSection(1, 70);
+    taskListTree->header()->resizeSection(2, 85);
+    taskListTree->header()->resizeSection(3, 85);
+
     timer = new QLabel();
     timer->setAlignment(Qt::AlignHCenter | Qt::AlignTop);
     timerFont = timer->font();
-    timerFont.setPointSize(70);
+    timerFont.setPointSize(50);
     timer->setFont(timerFont);
     timer->setText("00:00");
     timer->setHidden(true);
@@ -23,11 +33,12 @@ MainWindow::MainWindow(QWidget *parent)
 
     startStopBtn = new QPushButton();
     startStopFont = startStopBtn->font();
-    startStopFont.setPointSize(18);
+    startStopFont.setPointSize(14);
     startStopBtn->setFont(startStopFont);
     startStopBtn->setText("Start");
-    startStopBtn->setFixedSize(160, 60);
+    startStopBtn->setFixedSize(160, 40);
     connect(startStopBtn, SIGNAL(clicked()), this, SLOT(startStop()));
+    startStopBtn->setEnabled(false);
 
     inputTask = new QLineEdit();
     inputTask->setFixedSize(200, 40);
@@ -35,6 +46,18 @@ MainWindow::MainWindow(QWidget *parent)
     taskFont.setPointSize(13);
     inputTask->setFont(taskFont);
     inputTask->setAlignment(Qt::AlignCenter);
+    inputTask->setPlaceholderText("Task Name");
+    connect(inputTask, SIGNAL(textChanged(QString)), this, SLOT(inputTaskChanged()));
+
+    // Test Yesterday
+    saved.thisTask = "Ydays Task";
+    saved.startTime = QDateTime::currentDateTime().addDays(-2);
+    saved.stopTime = QDateTime::currentDateTime().addDays(-1).addSecs(65);
+    savedTimes.push_back(saved);
+    saved.thisTask = "Ydays Task";
+    saved.startTime = QDateTime::currentDateTime().addDays(-1);
+    saved.stopTime = QDateTime::currentDateTime().addDays(-1).addSecs(65);
+    savedTimes.push_back(saved);
 
     buildMenuBar();
     createLayout();
@@ -47,10 +70,11 @@ MainWindow::~MainWindow()
 }
 
 void MainWindow::createLayout() {
-    mainLayout->addLayout(listOfTasksLayout);
     mainLayout->addWidget(timer);
     mainLayout->addWidget(inputTask, 0, Qt::AlignCenter | Qt::AlignTop);
     mainLayout->addWidget(startStopBtn, 0, Qt::AlignCenter | Qt::AlignTop);
+    mainLayout->addWidget(taskListTree);
+
 }
 
 void MainWindow::clearLayout(QLayout *layout) {
@@ -89,7 +113,7 @@ void MainWindow::startStop() {
         saved.thisTask = inputTask->text().toStdString();
         saved.stopTime = QDateTime::currentDateTime();
         savedTimes.push_back(saved);
-        clearLayout(listOfTasksLayout);
+        taskListTree->clear();
         sortSavedByDay();
         timer->setText("00:00");
         inputTask->setText("");
@@ -148,76 +172,52 @@ void MainWindow::sortSavedByDay() {
 }
 
 void MainWindow::createDayOverview() {
-    std::vector<Section*> allDays;
     std::vector<QVBoxLayout*> dailyTaskLayouts;
-    for (std::vector<SavedItems> tasksThisDay : tasksByDay) {
+    for (size_t i = tasksByDay.size(); i-- > 0; ) {
         // Create Day List
-        dayAndMonth = tasksThisDay[0].startTime.toString("MMM d").toStdString();
+        dayAndMonth = tasksByDay[i][0].startTime.toString("MMM d").toStdString();
         if (QDateTime::currentDateTime().toString("MMM d").toStdString() == dayAndMonth) {
             dayAndMonth = "Today";
-        } // TODO add Yesterday
+        } else if (QDateTime::currentDateTime().addDays(-1).toString("MMM d").toStdString() == dayAndMonth) {
+            dayAndMonth = "Yesterday";
+        }
+        // TODO add Yesterday
 
         // Day Label shows "date - total time recorded that day".
         int differenceInSecs;
         int totalDailyTime = 0;
-        for (SavedItems currTask : tasksThisDay) {
+        for (SavedItems currTask : tasksByDay[i]) {
             differenceInSecs = currTask.stopTime.toSecsSinceEpoch() - currTask.startTime.toSecsSinceEpoch();
             totalDailyTime += differenceInSecs;
         }
-        std::string dayLabel = dayAndMonth + " - " +
-                QDateTime::fromSecsSinceEpoch( totalDailyTime, Qt::UTC ).toString( "hh:mm:ss" ).toStdString();
-        Section *section = new Section(QString::fromStdString(dayLabel));
-        allDays.push_back(section);
+        QTreeWidgetItem *dayItem = new QTreeWidgetItem(taskListTree);
+        dayItem->setText(0, QString::fromStdString(dayAndMonth));
+        dayItem->setText(1, QDateTime::fromSecsSinceEpoch(totalDailyTime, Qt::UTC).toString("h:mm:ss"));
 
         // Create Task List sorted by day
-        getSimilarTasks(tasksThisDay);
-        QVBoxLayout *dayTaskLayout = new QVBoxLayout;
+        getSimilarTasks(tasksByDay[i]);
         for (std::vector<SavedItems> thisTaskByTask : tasksByTask) {
             std::string taskName = thisTaskByTask[0].thisTask;
             // Task label shows total time recorded for that task that day
+            QTreeWidgetItem *taskItem = new QTreeWidgetItem(dayItem);
+            QList<QTreeWidgetItem *> sameTaskItemsVec;
             int totalTaskTime = 0;
             for (SavedItems currTask : thisTaskByTask) {
                 differenceInSecs = currTask.stopTime.toSecsSinceEpoch() - currTask.startTime.toSecsSinceEpoch();
                 totalTaskTime += differenceInSecs;
+                // TODO Here - add each item in this task to the taskListTree under the taskItem task
+                QTreeWidgetItem *sameTaskItem = new QTreeWidgetItem(taskItem);
+                sameTaskItem->setText(1, QDateTime::fromSecsSinceEpoch(differenceInSecs, Qt::UTC).toString("h:mm"));
+                sameTaskItem->setText(2, currTask.startTime.toString("h:mm:ss ap"));
+                sameTaskItem->setText(3, currTask.stopTime.toString("h:mm:ss ap"));
+                sameTaskItemsVec.append(sameTaskItem);
             }
-            std::string taskLabel = taskName + " - " +
-                    QDateTime::fromSecsSinceEpoch( totalTaskTime, Qt::UTC ).toString( "hh:mm:ss" ).toStdString();
-            Section *section = new Section(QString::fromStdString(taskLabel));
-            // TODO add TableWidget of task times to task list
-            // setContentLayout of dayTaskLayout to TableWidget
-            taskTable = new QTableWidget();
-            taskTableLayout = new QVBoxLayout();
-            taskTable->setColumnCount(3);
-            QStringList horzHeaders;
-            horzHeaders << "Time" << "Start" << "End";
-            taskTable->setHorizontalHeaderLabels(horzHeaders);
-            taskTable->verticalHeader()->setVisible(false);
-            taskTable->setRowCount(0);
-            for (SavedItems currTask : thisTaskByTask) {
-                int row = taskTable->rowCount();
-                taskTable->setRowCount(row+1);
-                differenceInSecs = currTask.stopTime.toSecsSinceEpoch() - currTask.startTime.toSecsSinceEpoch();
-                std::string totalTime = QDateTime::fromSecsSinceEpoch( differenceInSecs, Qt::UTC ).toString( "hh:mm:ss" ).toStdString();
-                cell = new QTableWidgetItem(QString::fromStdString(totalTime));
-                taskTable->setItem(row, 0, cell);
-                std::string fmtStartTime = currTask.startTime.toString("hh:mm::ss").toStdString();
-                cell = new QTableWidgetItem(QString::fromStdString(fmtStartTime));
-                taskTable->setItem(row, 1, cell);
-                std::string fmtStopTime = currTask.stopTime.toString("hh:mm::ss").toStdString();
-                cell = new QTableWidgetItem(QString::fromStdString(fmtStopTime));
-                taskTable->setItem(row, 2, cell);
-            }
-            taskTableLayout->addWidget(taskTable);
-            section->setContentLayout(*taskTableLayout);
-            dayTaskLayout->addWidget(section);
+            taskItem->setText(0, QString::fromStdString(taskName));
+            taskItem->setText(1, QDateTime::fromSecsSinceEpoch( totalTaskTime, Qt::UTC ).toString("h:mm:ss"));
+            taskListTree->addTopLevelItems(sameTaskItemsVec);//TODO should add sameTaskItem
         }
-        dailyTaskLayouts.push_back(dayTaskLayout);
-    }
-    for (size_t i = 0; i < allDays.size(); i++) {
-        allDays[i]->setContentLayout(*dailyTaskLayouts[i]);
-        listOfTasksLayout->addWidget(allDays[i]);
-        if (allDays[i]->getTitle().toStdString().substr(0,5) == "Today") {
-            allDays[i]->toggle(true);
+        if (dayAndMonth == "Today") {
+            taskListTree->expandItem(dayItem);
         }
     }
 }
@@ -240,4 +240,24 @@ void MainWindow::getSimilarTasks(std::vector<SavedItems> tasksThisDay) {
             tasksByTask.push_back(thisTaskByTask);
         }
     }
+}
+
+void MainWindow::inputTaskChanged() {
+    if (inputTask->text() != "") {
+        startStopBtn->setEnabled(true);
+    } else {
+        startStopBtn->setEnabled(false);
+    }
+}
+
+void MainWindow::databaseInit() {
+    sqlite3 *db;
+    int rc;
+
+    rc = sqlite3_open("timer.db", &db);
+
+    if( rc ) {
+       fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
+    }
+    sqlite3_close(db);
 }

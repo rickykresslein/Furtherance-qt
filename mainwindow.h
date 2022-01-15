@@ -16,7 +16,8 @@
 #include <QGroupBox>
 #include <QTableWidget>
 #include <QHeaderView>
-#include "Section.h"
+#include <QTreeWidget>
+#include <sqlite3.h>
 
 class SavedItems {
 
@@ -36,6 +37,7 @@ public:
 
 public slots:
     void startStop();
+    void inputTaskChanged();
 
 private:
     // Variables
@@ -58,6 +60,7 @@ private:
     QFont taskFont;
     QTableWidget *taskTable;
     QTableWidgetItem *cell;
+    QTreeWidget *taskListTree;
 
     // Menu
     QMenu *fileMenu;
@@ -72,7 +75,6 @@ private:
     QVBoxLayout *mainLayout;
     QVBoxLayout *listOfTasksLayout;
     QVBoxLayout *taskTableLayout;
-    QScrollArea *scrollArea;
 
     // Functions
     void createLayout();
@@ -84,6 +86,8 @@ private:
     void sortSavedByDay();
     void createDayOverview();
     void getSimilarTasks(std::vector<SavedItems> tasksThisDay);
+
+    void databaseInit();
 
     // Classes
 
