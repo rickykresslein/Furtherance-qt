@@ -17,7 +17,14 @@
 #include <QTableWidget>
 #include <QHeaderView>
 #include <QTreeWidget>
+#include <QDebug>
 #include <sqlite3.h>
+
+#include <QtSql/QSqlDatabase>
+#include <QtSql/QSqlDriver>
+#include <QtSql/QSqlError>
+#include <QtSql/QSqlQuery>
+#include <QVariant>
 
 class SavedItems {
 
@@ -87,7 +94,10 @@ private:
     void createDayOverview();
     void getSimilarTasks(std::vector<SavedItems> tasksThisDay);
 
+    void databaseConnect();
     void databaseInit();
+    void databasePopulate();
+    void databaseRead();
 
     // Classes
 

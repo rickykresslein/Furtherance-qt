@@ -12,7 +12,9 @@ MainWindow::MainWindow(QWidget *parent)
     mainWidget->setLayout(mainLayout);
     listOfTasksLayout = new QVBoxLayout();
 
+    databaseConnect();
     databaseInit();
+    databaseRead();
 
     taskListTree = new QTreeWidget();
     taskListTree->setUniformRowHeights(true);
@@ -50,19 +52,23 @@ MainWindow::MainWindow(QWidget *parent)
     connect(inputTask, SIGNAL(textChanged(QString)), this, SLOT(inputTaskChanged()));
 
     // Test Yesterday
-    saved.thisTask = "Ydays Task";
-    saved.startTime = QDateTime::currentDateTime().addDays(-2);
-    saved.stopTime = QDateTime::currentDateTime().addDays(-1).addSecs(65);
-    savedTimes.push_back(saved);
-    saved.thisTask = "Ydays Task";
-    saved.startTime = QDateTime::currentDateTime().addDays(-1);
-    saved.stopTime = QDateTime::currentDateTime().addDays(-1).addSecs(65);
-    savedTimes.push_back(saved);
+//    saved.thisTask = "Task 1";
+//    saved.startTime = QDateTime::currentDateTime().addDays(-1);
+//    saved.stopTime = QDateTime::currentDateTime().addDays(-1).addSecs(65);
+//    savedTimes.push_back(saved);
+//    saved.thisTask = "Ydays Task";
+//    saved.startTime = QDateTime::currentDateTime().addDays(-1);
+//    saved.stopTime = QDateTime::currentDateTime().addDays(-1).addSecs(65);
+//    savedTimes.push_back(saved);
 
     buildMenuBar();
     createLayout();
     startTimer(0);
     setCentralWidget(mainWidget);
+
+    if (savedTimes.size() > 0) {
+        sortSavedByDay();
+    }
 }
 
 MainWindow::~MainWindow()
@@ -112,6 +118,7 @@ void MainWindow::startStop() {
         currentTimer = timer->text().toStdString();
         saved.thisTask = inputTask->text().toStdString();
         saved.stopTime = QDateTime::currentDateTime();
+        databasePopulate();
         savedTimes.push_back(saved);
         taskListTree->clear();
         sortSavedByDay();
@@ -207,7 +214,7 @@ void MainWindow::createDayOverview() {
                 totalTaskTime += differenceInSecs;
                 // TODO Here - add each item in this task to the taskListTree under the taskItem task
                 QTreeWidgetItem *sameTaskItem = new QTreeWidgetItem(taskItem);
-                sameTaskItem->setText(1, QDateTime::fromSecsSinceEpoch(differenceInSecs, Qt::UTC).toString("h:mm"));
+                sameTaskItem->setText(1, QDateTime::fromSecsSinceEpoch(differenceInSecs, Qt::UTC).toString("h:mm:ss"));
                 sameTaskItem->setText(2, currTask.startTime.toString("h:mm:ss ap"));
                 sameTaskItem->setText(3, currTask.stopTime.toString("h:mm:ss ap"));
                 sameTaskItemsVec.append(sameTaskItem);
@@ -250,14 +257,54 @@ void MainWindow::inputTaskChanged() {
     }
 }
 
-void MainWindow::databaseInit() {
-    sqlite3 *db;
-    int rc;
+void MainWindow::databaseConnect()
+{
+    const QString DRIVER("QSQLITE");
 
-    rc = sqlite3_open("timer.db", &db);
+    if(QSqlDatabase::isDriverAvailable(DRIVER))
+    {
+        QSqlDatabase db = QSqlDatabase::addDatabase(DRIVER);
 
-    if( rc ) {
-       fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
+        db.setDatabaseName("timer.db");
+
+        if(!db.open())
+            qWarning() << "MainWindow::DatabaseConnect - ERROR: " << db.lastError().text();
     }
-    sqlite3_close(db);
+    else
+        qWarning() << "MainWindow::DatabaseConnect - ERROR: no driver " << DRIVER << " available";
+}
+
+void MainWindow::databaseInit()
+{
+    QSqlQuery query("CREATE TABLE tasks (id INTEGER PRIMARY KEY, taskName TEXT, startTime TIMESTAMP, stopTime TIMESTAMP)");
+
+//    if(!query.isActive())
+//        qWarning() << "MainWindow::DatabaseInit - ERROR: " << query.lastError().text();
+
+}
+
+void MainWindow::databasePopulate()
+{
+    QSqlQuery query;
+
+    query.prepare("INSERT INTO tasks (taskName, startTime, stopTime) "
+                  "VALUES(:taskName, :startTime, :stopTime)");
+    query.bindValue(":taskName", QString::fromStdString(saved.thisTask));
+    query.bindValue(":startTime", saved.startTime);
+    query.bindValue(":stopTime", saved.stopTime);
+
+    if(!query.exec())
+        qWarning() << "MainWindow::DatabasePopulate - ERROR: " << query.lastError().text();
+}
+
+void MainWindow::databaseRead()
+{
+    QSqlQuery query("SELECT * FROM tasks");
+    while (query.next())
+    {
+       saved.thisTask = query.value("taskName").toString().toStdString();
+       saved.startTime = query.value("startTime").toDateTime();
+       saved.stopTime = query.value("stopTime").toDateTime();
+       savedTimes.push_back(saved);
+    }
 }
