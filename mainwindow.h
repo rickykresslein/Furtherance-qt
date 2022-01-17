@@ -4,6 +4,7 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <algorithm>
 #include <QMainWindow>
 #include <QVBoxLayout>
 #include <QLabel>
@@ -17,7 +18,10 @@
 #include <QTableWidget>
 #include <QHeaderView>
 #include <QTreeWidget>
+#include <QTreeWidgetItem>
 #include <QDebug>
+#include <QInputDialog>
+#include <QDir>
 #include <sqlite3.h>
 
 #include <QtSql/QSqlDatabase>
@@ -32,6 +36,7 @@ public:
     std::string thisTask;
     QDateTime startTime;
     QDateTime stopTime;
+    int id;
 };
 
 class MainWindow : public QMainWindow
@@ -45,6 +50,10 @@ public:
 public slots:
     void startStop();
     void inputTaskChanged();
+    void itemEdited(QTreeWidgetItem * item, int column);
+    void taskListContextMenu(const QPoint &point);
+    void deleteTask();
+    void clearDatabase();
 
 private:
     // Variables
@@ -55,7 +64,6 @@ private:
     std::string dayAndMonth;
     std::vector<std::vector<SavedItems>> tasksByDay;
     std::vector<std::vector<SavedItems>> tasksByTask;
-
 
     // Widgets
     QWidget *mainWidget;
@@ -72,11 +80,13 @@ private:
     // Menu
     QMenu *fileMenu;
     QMenu *editMenu;
+    QMenu *taskListMenu;
 
     // Actions
     QTime beginTime;
     QAction *quitAction;
     QAction *clearAction;
+    QAction *deleteItemAction;
 
     // Layouts
     QVBoxLayout *mainLayout;
@@ -93,11 +103,15 @@ private:
     void sortSavedByDay();
     void createDayOverview();
     void getSimilarTasks(std::vector<SavedItems> tasksThisDay);
+    int getTimeDifference(QDateTime stopTime, QDateTime startTime);
+    bool isWhitespace(std::string s);
+    void refreshTaskList();
 
     void databaseConnect();
     void databaseInit();
     void databasePopulate();
     void databaseRead();
+    int databaseGetLastID();
 
     // Classes
 
