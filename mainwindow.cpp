@@ -277,7 +277,19 @@ void MainWindow::databaseConnect()
     {
         QSqlDatabase db = QSqlDatabase::addDatabase(DRIVER);
 
-        db.setDatabaseName("timer.db");
+        #ifdef _WIN32
+            QString timerDir = QDir::homePath() + QDir::separator() + "Timer";
+        #elif __APPLE__
+            QString timerDir = QDir::homePath() + QDir::separator() + ".Timer";
+        #else
+            QString timerDir = QDir::homePath() + QDir::separator()+ ".config" + QDir::separator() + "Timer";
+        #endif
+        QDir dir(timerDir);
+        if (!dir.exists()){
+          dir.mkpath(timerDir);
+        }
+        QString timerDbPath = timerDir + QDir::separator() + "timer.db";
+        db.setDatabaseName(timerDbPath);
 
         if(!db.open())
             qWarning() << "MainWindow::databaseConnect - ERROR: " << db.lastError().text();
@@ -430,8 +442,6 @@ bool MainWindow::isWhitespace(std::string s){
 }
 
 void MainWindow::clearDatabase() {
-    // Message box, are you sure you want to delete all saved data?
-    // If so, type DELETE.
     bool ok;
     QString text = QInputDialog::getText(this, tr("Delete Database"),
                                          tr("Are you sure you want to delete all saved data? If so, type DELETE."),
