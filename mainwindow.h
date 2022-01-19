@@ -76,7 +76,6 @@ private:
     QTableWidget *taskTable;
     QTableWidgetItem *cell;
     QTreeWidget *taskListTree;
-
     // Menu
     QMenu *fileMenu;
     QMenu *editMenu;

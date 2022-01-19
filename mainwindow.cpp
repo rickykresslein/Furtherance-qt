@@ -5,7 +5,7 @@ SavedItems saved;
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
-    setWindowTitle("rkTimer");
+    setWindowTitle("Furtherance");
     resize(430,700);
     mainWidget = new QWidget();
     mainLayout = new QVBoxLayout();
@@ -62,10 +62,6 @@ MainWindow::MainWindow(QWidget *parent)
 
     // Test Yesterday
 //    saved.thisTask = "Task 1";
-//    saved.startTime = QDateTime::currentDateTime().addDays(-1);
-//    saved.stopTime = QDateTime::currentDateTime().addDays(-1).addSecs(65);
-//    savedTimes.push_back(saved);
-//    saved.thisTask = "Ydays Task";
 //    saved.startTime = QDateTime::currentDateTime().addDays(-1);
 //    saved.stopTime = QDateTime::currentDateTime().addDays(-1).addSecs(65);
 //    savedTimes.push_back(saved);
@@ -238,6 +234,9 @@ void MainWindow::createDayOverview() {
             taskListTree->expandItem(dayItem);
         }
     }
+    // Move expansions to here so they are not repeated for every day
+    // User findItems to find "Today" to expand it.
+    // Actually this is not necessary. They are not really repeated, just the check on the if's
     taskListTree->blockSignals(false);
 }
 
@@ -278,17 +277,17 @@ void MainWindow::databaseConnect()
         QSqlDatabase db = QSqlDatabase::addDatabase(DRIVER);
 
         #ifdef _WIN32
-            QString timerDir = QDir::homePath() + QDir::separator() + "Timer";
+            QString furtheranceDir = QDir::homePath() + QDir::separator() + "Furtherance";
         #elif __APPLE__
-            QString timerDir = QDir::homePath() + QDir::separator() + ".Timer";
+            QString furtheranceDir = QDir::homePath() + QDir::separator() + ".Furtherance";
         #else
-            QString timerDir = QDir::homePath() + QDir::separator()+ ".config" + QDir::separator() + "Timer";
+            QString furtheranceDir = QDir::homePath() + QDir::separator()+ ".config" + QDir::separator() + "Furtherance";
         #endif
-        QDir dir(timerDir);
+        QDir dir(furtheranceDir);
         if (!dir.exists()){
-          dir.mkpath(timerDir);
+          dir.mkpath(furtheranceDir);
         }
-        QString timerDbPath = timerDir + QDir::separator() + "timer.db";
+        QString timerDbPath = furtheranceDir + QDir::separator() + "furtherance.db";
         db.setDatabaseName(timerDbPath);
 
         if(!db.open())
@@ -320,7 +319,7 @@ void MainWindow::databasePopulate()
 
 void MainWindow::databaseRead()
 {
-    QSqlQuery query("SELECT * FROM tasks");
+    QSqlQuery query("SELECT * FROM tasks ORDER BY startTime");
     while (query.next())
     {
        saved.thisTask = query.value("taskName").toString().toStdString();
@@ -404,6 +403,11 @@ void MainWindow::itemEdited(QTreeWidgetItem * item, int column)
 
     // Rebuild list
     refreshTaskList();
+    QList<QTreeWidgetItem *> editedItemVec = taskListTree->findItems(QString::number(currID), Qt::MatchExactly|Qt::MatchRecursive, 4);
+    QTreeWidgetItem *editedItemParent = editedItemVec[0]->parent();
+    QTreeWidgetItem *editedItemParentOfParent = editedItemParent->parent();
+    taskListTree->expandItem(editedItemParentOfParent);
+    taskListTree->expandItem(editedItemParent);
 }
 
 int MainWindow::getTimeDifference(QDateTime stopTime, QDateTime startTime) {
