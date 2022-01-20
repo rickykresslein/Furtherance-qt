@@ -22,7 +22,8 @@
 #include <QDebug>
 #include <QInputDialog>
 #include <QDir>
-#include <sqlite3.h>
+//#include <KIdleTime>
+#include <QMessageBox>
 
 #include <QtSql/QSqlDatabase>
 #include <QtSql/QSqlDriver>
@@ -54,6 +55,7 @@ public slots:
     void taskListContextMenu(const QPoint &point);
     void deleteTask();
     void clearDatabase();
+    void resumeFromIdle();
 
 private:
     // Variables
@@ -64,6 +66,8 @@ private:
     std::string dayAndMonth;
     std::vector<std::vector<SavedItems>> tasksByDay;
     std::vector<std::vector<SavedItems>> tasksByTask;
+    bool subtractIdle = false;
+    int idleTime;
 
     // Widgets
     QWidget *mainWidget;

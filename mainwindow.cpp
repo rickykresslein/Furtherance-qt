@@ -60,6 +60,9 @@ MainWindow::MainWindow(QWidget *parent)
     inputTask->setPlaceholderText("Task Name");
     connect(inputTask, SIGNAL(textChanged(QString)), this, SLOT(inputTaskChanged()));
 
+    // Notify of idle
+//    connect(KIdleTime::instance(), &KIdleTime::resumingFromIdle, this, &MainWindow::resumeFromIdle);
+
     // Test Yesterday
 //    saved.thisTask = "Task 1";
 //    saved.startTime = QDateTime::currentDateTime().addDays(-1);
@@ -68,8 +71,9 @@ MainWindow::MainWindow(QWidget *parent)
 
     buildMenuBar();
     createLayout();
-    startTimer(0);
     setCentralWidget(mainWidget);
+
+    startTimer(100);
 
     if (savedTimes.size() > 0) {
         sortSavedByDay();
@@ -120,9 +124,16 @@ void MainWindow::startStop() {
     if (running) {
         running = false;
         timer->setHidden(true);
+//        KIdleTime::instance()->stopCatchingResumeEvent();
         currentTimer = timer->text().toStdString();
         saved.thisTask = inputTask->text().toStdString();
-        saved.stopTime = QDateTime::currentDateTime();
+        if (subtractIdle) {
+//            int currentTimeSecs = QDateTime::currentSecsSinceEpoch() - idleTime;
+//            saved.stopTime = QDateTime::fromSecsSinceEpoch(currentTimeSecs);
+//            subtractIdle = false;
+        } else {
+            saved.stopTime = QDateTime::currentDateTime();
+        }
         databasePopulate();
         saved.id = databaseGetLastID();
         savedTimes.push_back(saved);
@@ -135,6 +146,7 @@ void MainWindow::startStop() {
         timer->setHidden(false);
         saved.startTime = QDateTime::currentDateTime();
         beginTime = QTime::currentTime();
+//        KIdleTime::instance()->catchNextResumeEvent();
         running = true;
         inputTask->setReadOnly(true);
         startStopBtn->setText("Stop");
@@ -287,7 +299,7 @@ void MainWindow::databaseConnect()
         if (!dir.exists()){
           dir.mkpath(furtheranceDir);
         }
-        QString timerDbPath = furtheranceDir + QDir::separator() + "furtherance.db";
+        QString timerDbPath = furtheranceDir + QDir::separator() + "furtherance_test.db";
         db.setDatabaseName(timerDbPath);
 
         if(!db.open())
@@ -469,4 +481,42 @@ void MainWindow::refreshTaskList() {
     savedTimes.clear();
     databaseRead();
     sortSavedByDay();
+}
+
+void MainWindow::resumeFromIdle()
+{
+//    // -Record how long the system was idle
+//    idleTime = KIdleTime::instance()->idleTime() / 1000;
+//    const QChar zero = '0';
+//    QString idleMessage;
+//    int h = idleTime / 60 / 60;
+//    int m = (idleTime / 60) - (h * 60);
+//    int s = idleTime - (m * 60);
+//    // -Display total time idle in the message box to show
+//    if (h > 0) {
+//        idleMessage = QString("You were idle for %1:%2:%3").
+//                                                  arg(h, 2, 10, zero).
+//                                                  arg(m, 2, 10, zero).
+//                                                  arg(s, 2, 10, zero);
+//    } else {
+//        idleMessage = QString("You were idle for %1:%2").
+//                                                  arg(m, 2, 10, zero).
+//                                                  arg(s, 2, 10, zero);
+//    }
+//    // user how long they were idle and ask if they would like to remove that time from the record
+//    QMessageBox msgBox;
+//    msgBox.setText(idleMessage);
+//    msgBox.setInformativeText("Do you want to discard that time, or continue the clock?");
+//    QPushButton *continueButton = msgBox.addButton(tr("Continue"), QMessageBox::NoRole);
+//    QPushButton *discardButton = msgBox.addButton(QMessageBox::Discard);
+//    msgBox.setDefaultButton(QMessageBox::Discard);
+//    msgBox.exec();
+//    if (msgBox.clickedButton() == continueButton) {
+//        // continue running clock and make sure we catch the next resume event
+//        KIdleTime::instance()->catchNextResumeEvent();
+//    } else if (msgBox.clickedButton() == discardButton) {
+//        // stop the clock and subtract the idle time from current time to get stop time
+//        subtractIdle = true;
+//        startStop();
+//    }
 }

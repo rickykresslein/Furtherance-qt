@@ -1,6 +1,7 @@
 QT       += core gui sql
-
+#KIdleTime
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
+# add KWayland-integration for idleTime polling?
 
 CONFIG += c++11
 
@@ -15,7 +16,8 @@ SOURCES += \
 HEADERS += \
     mainwindow.h
 
-# LIBS += -lsqlite3
+win32:RC_ICONS += ./images/icon.ico
+
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
