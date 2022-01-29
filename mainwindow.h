@@ -4,6 +4,7 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <string_view>
 #include <algorithm>
 #include <QMainWindow>
 #include <QVBoxLayout>
@@ -22,8 +23,9 @@
 #include <QDebug>
 #include <QInputDialog>
 #include <QDir>
-//#include <KIdleTime>
 #include <QMessageBox>
+#include <QtDBus/QDBusInterface>
+#include <QtDBus/QDBusReply>
 
 #include <QtSql/QSqlDatabase>
 #include <QtSql/QSqlDriver>
@@ -55,6 +57,7 @@ public slots:
     void taskListContextMenu(const QPoint &point);
     void deleteTask();
     void clearDatabase();
+    void idleTimeReached();
     void resumeFromIdle();
 
 private:
@@ -68,6 +71,14 @@ private:
     std::vector<std::vector<SavedItems>> tasksByTask;
     bool subtractIdle = false;
     int idleTime;
+    int idleStartTime;
+    int notifyOfIdle;
+    int storedIdleTime = 0;
+    bool idleTimeReachedBool = false;
+    bool idleNotified = false;
+
+    bool kdePlasma = false;
+    bool gnome = false;
 
     // Widgets
     QWidget *mainWidget;
@@ -109,6 +120,8 @@ private:
     int getTimeDifference(QDateTime stopTime, QDateTime startTime);
     bool isWhitespace(std::string s);
     void refreshTaskList();
+    void getDesktopEnv();
+    int getGnomeIdleTime();
 
     void databaseConnect();
     void databaseInit();

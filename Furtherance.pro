@@ -1,7 +1,6 @@
-QT       += core gui sql
-#KIdleTime
+QT       += core gui sql dbus
+
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
-# add KWayland-integration for idleTime polling?
 
 CONFIG += c++11
 
@@ -15,8 +14,6 @@ SOURCES += \
 
 HEADERS += \
     mainwindow.h
-
-win32:RC_ICONS += ./images/icon.ico
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

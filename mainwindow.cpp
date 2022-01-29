@@ -11,6 +11,9 @@ MainWindow::MainWindow(QWidget *parent)
     mainLayout = new QVBoxLayout();
     mainWidget->setLayout(mainLayout);
     listOfTasksLayout = new QVBoxLayout();
+    notifyOfIdle = 180;
+
+    getDesktopEnv();
 
     databaseConnect();
     databaseInit();
@@ -61,13 +64,13 @@ MainWindow::MainWindow(QWidget *parent)
     connect(inputTask, SIGNAL(textChanged(QString)), this, SLOT(inputTaskChanged()));
 
     // Notify of idle
-//    connect(KIdleTime::instance(), &KIdleTime::resumingFromIdle, this, &MainWindow::resumeFromIdle);
-
-    // Test Yesterday
-//    saved.thisTask = "Task 1";
-//    saved.startTime = QDateTime::currentDateTime().addDays(-1);
-//    saved.stopTime = QDateTime::currentDateTime().addDays(-1).addSecs(65);
-//    savedTimes.push_back(saved);
+    #ifdef __linux__
+        if (kdePlasma)
+        {
+//            connect(KIdleTime::instance(), QOverload<int, int>::of(&KIdleTime::timeoutReached), this, &MainWindow::idleTimeReached);
+//            connect(KIdleTime::instance(), &KIdleTime::resumingFromIdle, this, &MainWindow::resumeFromIdle);
+        }
+    #endif
 
     buildMenuBar();
     createLayout();
@@ -124,13 +127,18 @@ void MainWindow::startStop() {
     if (running) {
         running = false;
         timer->setHidden(true);
-//        KIdleTime::instance()->stopCatchingResumeEvent();
+        #ifdef __linux__
+            if (kdePlasma)
+            {
+//                KIdleTime::instance()->stopCatchingResumeEvent();
+            }
+        #endif
         currentTimer = timer->text().toStdString();
         saved.thisTask = inputTask->text().toStdString();
         if (subtractIdle) {
-//            int currentTimeSecs = QDateTime::currentSecsSinceEpoch() - idleTime;
-//            saved.stopTime = QDateTime::fromSecsSinceEpoch(currentTimeSecs);
-//            subtractIdle = false;
+//            int currentTimeSecs = QDateTime::currentSecsSinceEpoch() - idleTime; TODO Remove this line
+            saved.stopTime = QDateTime::fromSecsSinceEpoch(idleStartTime);
+            subtractIdle = false;
         } else {
             saved.stopTime = QDateTime::currentDateTime();
         }
@@ -146,7 +154,12 @@ void MainWindow::startStop() {
         timer->setHidden(false);
         saved.startTime = QDateTime::currentDateTime();
         beginTime = QTime::currentTime();
-//        KIdleTime::instance()->catchNextResumeEvent();
+        #ifdef __linux__
+            if (kdePlasma)
+            {
+//                KIdleTime::instance()->addIdleTimeout(notifyOfIdle*1000);
+            }
+        #endif
         running = true;
         inputTask->setReadOnly(true);
         startStopBtn->setText("Stop");
@@ -172,6 +185,31 @@ void MainWindow::timerEvent(QTimerEvent *) {
                                 arg(s, 2, 10, zero);
         }
         timer->setText(diff);
+        #ifdef __linux__
+            if (gnome)
+            {
+                // get idle time from d-bus
+                int currentIdle = getGnomeIdleTime();
+
+                // check if user is back from idle, and if so show the resume dialog
+                if (currentIdle < notifyOfIdle && idleTimeReachedBool && !idleNotified )
+                {
+                    idleNotified = true;
+                    resumeFromIdle();
+                }
+
+                // save the current idle time
+                storedIdleTime = currentIdle;
+
+                // check if the idle time has surpassed the set allowed idle time before user is shown dialog on return
+                if (storedIdleTime >= notifyOfIdle && !idleTimeReachedBool)
+                {
+                    idleTimeReachedBool = true;
+                    // store time user became idle
+                    idleTimeReached();
+                }
+            }
+        #endif
     }
 }
 
@@ -246,9 +284,6 @@ void MainWindow::createDayOverview() {
             taskListTree->expandItem(dayItem);
         }
     }
-    // Move expansions to here so they are not repeated for every day
-    // User findItems to find "Today" to expand it.
-    // Actually this is not necessary. They are not really repeated, just the check on the if's
     taskListTree->blockSignals(false);
 }
 
@@ -483,40 +518,102 @@ void MainWindow::refreshTaskList() {
     sortSavedByDay();
 }
 
+void MainWindow::idleTimeReached()
+{
+    idleStartTime = QDateTime::currentSecsSinceEpoch();
+    idleStartTime -= (notifyOfIdle);
+    #ifdef __linux__
+        if (kdePlasma)
+        {
+//            KIdleTime::instance()->removeAllIdleTimeouts();
+//            KIdleTime::instance()->catchNextResumeEvent();
+        }
+    #endif
+}
+
 void MainWindow::resumeFromIdle()
 {
-//    // -Record how long the system was idle
-//    idleTime = KIdleTime::instance()->idleTime() / 1000;
-//    const QChar zero = '0';
-//    QString idleMessage;
-//    int h = idleTime / 60 / 60;
-//    int m = (idleTime / 60) - (h * 60);
-//    int s = idleTime - (m * 60);
-//    // -Display total time idle in the message box to show
-//    if (h > 0) {
-//        idleMessage = QString("You were idle for %1:%2:%3").
-//                                                  arg(h, 2, 10, zero).
-//                                                  arg(m, 2, 10, zero).
-//                                                  arg(s, 2, 10, zero);
-//    } else {
-//        idleMessage = QString("You were idle for %1:%2").
-//                                                  arg(m, 2, 10, zero).
-//                                                  arg(s, 2, 10, zero);
-//    }
-//    // user how long they were idle and ask if they would like to remove that time from the record
-//    QMessageBox msgBox;
-//    msgBox.setText(idleMessage);
-//    msgBox.setInformativeText("Do you want to discard that time, or continue the clock?");
-//    QPushButton *continueButton = msgBox.addButton(tr("Continue"), QMessageBox::NoRole);
-//    QPushButton *discardButton = msgBox.addButton(QMessageBox::Discard);
-//    msgBox.setDefaultButton(QMessageBox::Discard);
-//    msgBox.exec();
-//    if (msgBox.clickedButton() == continueButton) {
-//        // continue running clock and make sure we catch the next resume event
-//        KIdleTime::instance()->catchNextResumeEvent();
-//    } else if (msgBox.clickedButton() == discardButton) {
-//        // stop the clock and subtract the idle time from current time to get stop time
-//        subtractIdle = true;
-//        startStop();
-//    }
+    // -Record how long the system was idle
+    int resumeTime = QDateTime::currentSecsSinceEpoch();
+    idleTime = resumeTime - idleStartTime;
+
+    const QChar zero = '0';
+    QString idleMessage;
+    int h = idleTime / 60 / 60;
+    int m = (idleTime / 60) - (h * 60);
+    int s = idleTime - (m * 60);
+    // -Display total time idle in the message box to show
+    if (h > 0) {
+        idleMessage = QString("You were idle for %1:%2:%3").
+                                                  arg(h, 2, 10, zero).
+                                                  arg(m, 2, 10, zero).
+                                                  arg(s, 2, 10, zero);
+    } else {
+        idleMessage = QString("You were idle for %1:%2").
+                                                  arg(m, 2, 10, zero).
+                                                  arg(s, 2, 10, zero);
+    }
+    // user how long they were idle and ask if they would like to remove that time from the record
+    QMessageBox msgBox;
+    msgBox.setText(idleMessage);
+    msgBox.setInformativeText("Do you want to discard that time, or continue the clock?");
+    QPushButton *continueButton = msgBox.addButton(tr("Continue"), QMessageBox::NoRole);
+    QPushButton *discardButton = msgBox.addButton(QMessageBox::Discard);
+    msgBox.setDefaultButton(QMessageBox::Discard);
+    msgBox.exec();
+    if (msgBox.clickedButton() == continueButton) {
+        // continue running clock and make sure we catch the next resume event
+        #ifdef __linux__
+            if (kdePlasma)
+            {
+//                KIdleTime::instance()->addIdleTimeout(notifyOfIdle * 1000);
+            }
+            if (gnome)
+            {
+                // TODO If continue
+                storedIdleTime = 0;
+                idleTimeReachedBool = false;
+                idleNotified = false;
+            }
+        #endif
+    } else if (msgBox.clickedButton() == discardButton) {
+        // stop the clock and subtract the idle time from current time to get stop time
+        #ifdef __linux__
+            if (gnome)
+            {
+                storedIdleTime = 0;
+                idleTimeReachedBool = false;
+                idleNotified = false;
+            }
+        #endif
+        subtractIdle = true;
+        startStop();
+    }
+}
+
+void MainWindow::getDesktopEnv() {
+    #ifdef __linux__
+        std::string desktopEnv = getenv("DESKTOP_SESSION");
+        std::transform(desktopEnv.begin(), desktopEnv.end(),desktopEnv.begin(), ::toupper);
+        int plasmaPos = desktopEnv.find("PLASMA");
+        int kdePos = desktopEnv.find("KDE");
+        int gnomePos = desktopEnv.find("GNOME");
+        if (plasmaPos >= 0 || kdePos >= 0)
+        {
+            kdePlasma = true;
+        } else if (gnomePos >= 0) {
+            gnome = true;
+        }
+    #endif
+}
+
+int MainWindow::getGnomeIdleTime()
+{
+    QDBusInterface interface( "org.gnome.Mutter.IdleMonitor",
+                              "/org/gnome/Mutter/IdleMonitor/Core",
+                              "org.gnome.Mutter.IdleMonitor");
+
+    QDBusReply<qulonglong> reply = interface.call("GetIdletime");
+
+    return reply.value() / 1000;
 }
